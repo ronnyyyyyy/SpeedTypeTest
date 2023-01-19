@@ -14,10 +14,11 @@ conn = sqlite3.connect('typing_data.db')
 cu = conn.cursor()
 
 # create a table
-# cu.execute("""CREATE TABLE typing_data (
-# 		WPM text,
-# 		Errors text
-# 	)""")
+cu.execute("""CREATE TABLE typing_data (
+		WPM text,
+		Errors text,
+		Accuracy text
+	)""")
 
 # typing_data Team data
 typing_data = []
@@ -29,12 +30,13 @@ cu.executemany("INSERT INTO typing_data VALUES (?,?)",typing_data)
 items = cu.fetchall()
 table = items
 
+
 """
 Function adds a record, ensures no duplicate student number
 inputs:array database
 outputs:array database
 """
-def add(WPM,Errors):
+def add(WPM,Errors,):
 
 	
 	# create a cursor
@@ -43,7 +45,6 @@ def add(WPM,Errors):
 
 	# appending values (first second,jersey_no into table)
 	cu.execute("INSERT INTO typing_data VALUES (?,?)", (WPM,Errors))
-
 
 	
 def display():

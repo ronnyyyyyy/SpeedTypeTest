@@ -1,5 +1,4 @@
-#Names:  Ronn
-
+                                                                                                                #Names:  Ronn
 #Date:  December 15, 2022
 #Program Name:  SpeedTypeTest
 #Purpose: Display the WPM depending on how quickly the user types a sentence
@@ -8,11 +7,54 @@ import curses
 from curses import wrapper
 import time
 import random
-# COLORS
-light_blue = (168, 218, 220)
+from tabulate import tabulate
+import sqlite3
 
 
+# connect to a database
+conn = sqlite3.connect('typing_data.db')
 
+# create a cursor
+cu = conn.cursor()
+
+# create a table
+# cu.execute("""CREATE TABLE typing_data (
+# 		wpm text,
+# 		wrong_words text,
+# 		accuracy text
+# 	)""")
+
+# typing_data Team data
+typing_data = []
+
+# inserting values on the typing database
+cu.executemany("INSERT INTO typing_data VALUES (?,?,?)",typing_data)
+
+# grabbing all the values from databsae
+items = cu.fetchall()
+table = items
+
+"""
+Function adds a record, ensures no duplicate student number
+inputs:array database
+outputs:array database
+"""
+def add(WPM,Errors,Accuracy):
+
+	
+	# create a cursor
+	cu = conn.cursor()
+	cu.execute("SELECT * FROM typing_data")
+
+	# appending values (first second,jersey_no into table)
+	cu.execute("INSERT INTO typing_data VALUES (?,?,?)", (WPM,Errors,Accuracy))
+
+	
+
+
+	
+
+	
 # the code for curses color pairs
 ERROR_CODE = 1
 CORRECT_CODE = 2
@@ -65,7 +107,6 @@ def init_color(stdscr):
 	stdscr.addstr("HELLO", curses.color_pair(HIGHLIGHT_CODE) | curses.A_BOLD)
 
 
-
 def prompt_input(stdscr):
 
 	'''
@@ -78,15 +119,14 @@ def prompt_input(stdscr):
 
 	usr_input = ""
 	while True:
+				
 		stdscr.addstr(0, 0, f"Please enter the # of sentences to type:\n",
 									curses.color_pair(PROMPT_CODE) | curses.A_BOLD)
 		stdscr.move(1, len(usr_input))
 		c = stdscr.getch()
-	
-		if c == 10: # if user presses enter break
-			break
 
-		elif c == 127: # if user presses backspace
+
+		if c == 127: # if user presses backspace
 			usr_input = usr_input[:-1]
 			
 		elif 48 <= c <= 57: 
@@ -95,10 +135,27 @@ def prompt_input(stdscr):
 			if int(usr_input) > 50:
 				usr_input = usr_input[:-1]
 
+
+		elif len(usr_input) == 0:
+			stdscr.addstr("PLEASE ENTER AN INTEGER")
+			stdscr.refresh()
+			time.sleep(1)
+			continue
+		elif c in [10, 13]: # if user presses enter
+			break
+
+		else:
+			print("PLEASE TYPE AN INTEGER")
+			time.sleep(1)
+	
 		stdscr.clear()
 		stdscr.addstr(1, 0, usr_input)
+	
 
+			
 	return int(usr_input)
+	
+
 
 
 
@@ -118,10 +175,22 @@ def prompt_replay(stdscr) -> None:
 	while True:
 		response = stdscr.getkey()
 		if response == "Y" or response == "y":
-			return
+			typing_test(stdscr)
 		elif response == "N" or response == "n":
-			menu_intro(stdscr)
+			mainloop()
 
+def display(stdscr):
+	# selecting all items from database
+	cu.execute("SELECT * FROM typing_data")
+	
+	items = cu.fetchall()
+	
+	table = items
+	
+	# formatting data into simple table
+	f_table = tabulate(table, headers=['WPM', 'Errors','Accuracy'], tablefmt='psql')
+	centralize_text(stdscr, f_table)
+	time.sleep(2)
 
 
 		
@@ -136,7 +205,6 @@ def typing_test(stdscr) -> None:
 
 	''' start the typing test '''
 
-	start_time = time.time()
 	total_words = 0
 	words_typed = 0
 	wrong_words = 0
@@ -145,6 +213,7 @@ def typing_test(stdscr) -> None:
 	num_of_sentences = prompt_input(stdscr)
 	sentences = get_random_sentences(num_of_sentences)
 		
+	start_time = time.time()
 
 	curses.noecho()
 	for i in range(len(sentences)):
@@ -232,7 +301,8 @@ def typing_test(stdscr) -> None:
 	stdscr.addstr(f"{accuracy*100:.2f}%\n", curses.color_pair(PROMPT_CODE))
 	stdscr.addstr(f"Final WPM:\t")
 	stdscr.addstr(f"{wpm:.0f}\n\n", curses.color_pair(PROMPT_CODE))
-	
+	add(f"{wpm:.0f}",f"{wrong_words:.0f}",f"{accuracy*100:.0f}%")
+
 	# prompt the user if they want to replay
 	prompt_replay(stdscr)
 
@@ -252,26 +322,27 @@ def centralize_text(stdscr, text:str, color:int=1):
     return (x, y)
 
 
-
-
 # MENU CODE
 
 menu = ['Home', 'Play', 'Scoreboard', 'Exit']
 
 
 def print_menu(stdscr, selected_row_idx):
-    stdscr.clear()
-    h, w = stdscr.getmaxyx()
-    for idx, row in enumerate(menu):
-    	x = w//2 - len(row)//2
-    	y = h//2 - len(menu)//2 + idx
-    	if idx == selected_row_idx:
-    		stdscr.attron(curses.color_pair(1))
-    		stdscr.addstr(y, x, row)
-    		stdscr.attroff(curses.color_pair(1))
-    	else:
-    		stdscr.addstr(y, x, row)
-    stdscr.refresh()
+	curses.curs_set(0)
+	curses.mousemask(1)
+	
+	stdscr.clear()
+	h, w = stdscr.getmaxyx()
+	for idx, row in enumerate(menu):
+		x = w//2 - len(row)//2
+		y = h//2 - len(menu)//2 + idx
+		if idx == selected_row_idx:
+			stdscr.attron(curses.color_pair(1))
+			stdscr.addstr(y, x, row)
+			stdscr.attroff(curses.color_pair(1))
+		else:
+			stdscr.addstr(y, x, row)
+	stdscr.refresh()
 
 
 def print_center(stdscr, text):
@@ -303,14 +374,54 @@ def menu_intro(stdscr):
 			current_row -= 1
 		elif key == curses.KEY_DOWN and current_row < len(menu)-1:
 			current_row += 1
+
+		elif key == curses.KEY_ENTER or current_row == 0:
+				print_center(stdscr, "You selected 'HOME'")
+				time.sleep(2)
+
 		elif key == curses.KEY_ENTER or current_row == 1:
-			print_center(stdscr, "You selected 'PLAY'")
-			time.sleep(2)
-			wrapper(typing_test)
+				print_center(stdscr, "You selected 'PLAY'")
+				time.sleep(2)
+				wrapper(typing_test)
+				stdscr.getch()
+
+			
+		elif key == curses.KEY_ENTER or current_row == 2 :
+			print_center(stdscr, "You selected 'SCOREBOARD'")
+			time.sleep(1)
+			stdscr.clear()
+			display(stdscr)
 			stdscr.getch()
-			# if user selected last row, exit the program
-			if current_row == len(menu)-1:
-				break
+
+		elif key == curses.KEY_ENTER or current_row == 3:
+			print_center(stdscr, "You selected 'exit'")
+			time.sleep(1)				
+			print_center(stdscr, "GOOD BYE !!'")
+			time.sleep(1)
+			exit(0)
+
+				
+		if key == curses.KEY_MOUSE: # If user clicks play with mouse
+			_,x,y,_,_ = curses.getmouse()
+			if x in range(38,41) and y == 20:
+				print_center(stdscr, "You selected 'PLAY'")
+				time.sleep(2)
+				wrapper(typing_test)
+				stdscr.getch()
+
+			elif x in range(35,45) and y == 21:
+				print_center(stdscr, "You selected 'SCOREBOARD'")
+				time.sleep(1)
+				stdscr.clear()
+				display(stdscr)
+				stdscr.getch()
+			elif x in range(38,41) and y == 22:
+				print_center(stdscr, "You selected 'exit'")
+				time.sleep(1)				
+				print_center(stdscr, "GOOD BYE !!")
+				time.sleep(1)
+				exit(0)
+
 
 		print_menu(stdscr, current_row)
 
